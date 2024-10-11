@@ -27,7 +27,11 @@ from .types import AlloType, Int, UInt, Fixed, UFixed, Index
 from .symbol_resolver import ASTResolver
 
 
+# This function aims to gather global variables used within a function, as well as other 
+# variables from the local execution context and any variables captured by closures.
 def _get_global_vars(_func):
+    # If `_func` is a callable, it starts by copying `_func`'s global variables (`_func.
+    # __globals__`).
     if isinstance(_func, Callable):
         # Discussions: https://github.com/taichi-dev/taichi/issues/282
         global_vars = _func.__globals__.copy()
@@ -38,9 +42,15 @@ def _get_global_vars(_func):
     # Mainly used to get the annotation definitions (shape and type),
     # which are probably not defined in __globals__
     for name, var in inspect.stack()[3][0].f_locals.items():
+        # Here, it examines the call stack to access locals from the outer scope (using 
+        # `inspect.stack()`). It checks if there are any integer, float, or `AlloType` 
+        # instances, or functions, and adds them to `global_vars`.
         if isinstance(var, (int, float, AlloType)) or inspect.isfunction(var):
             global_vars[name] = var
 
+    # If `_func` is callable, here, it then handles the closed-over variables (free 
+    # variables) by inspecting `_func.__code__.co_freevars` and accessing them through 
+    # `_func.__closure__`.
     if isinstance(_func, Callable):
         freevar_names = _func.__code__.co_freevars
         closure = _func.__closure__
@@ -51,12 +61,29 @@ def _get_global_vars(_func):
     return global_vars
 
 
+# This is a higher-level function that not only retrieves global and free variables 
+# associated with `func` but also extends this to include global variables of any 
+# function references it contains.
 def get_global_vars(func):
+    # It initially calls `_get_global_vars(func)` to collect the initial set of 
+    # global variables.
     global_vars = _get_global_vars(func)
+    
+    DEBUG = 0
+    if DEBUG:
+        print("type of global_vars: ", type(global_vars))
+        for item,key in global_vars.items():
+            print(f"  {item:>20} = {key}")
+    
+    # It creates a copy, `new_global_vars`, and iterates over the values to check 
+    # for instances of `PyFunctionType`, suggesting these are functions defined or 
+    # imported in another module.
     new_global_vars = global_vars.copy()
     for var in global_vars.values():
         # import functions from other files
         if isinstance(var, PyFunctionType):
+            # If such functions are found, it recursively calls `_get_global_vars` 
+            # to include their global variables as well.
             new_global_vars.update(_get_global_vars(var))
     return new_global_vars
 
@@ -78,6 +105,10 @@ def get_kwarg(kwargs, name):
 
 
 def parse_ast(src, verbose=False):
+    # The ast module helps Python applications to process trees of the Python 
+    # abstract syntax grammar. The abstract syntax itself might change with 
+    # each Python release; this module helps to find out programmatically what 
+    # the current grammar looks like.
     tree = ast.parse(src)
     if verbose:
         print(src)
