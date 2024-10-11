@@ -35,6 +35,18 @@ class VarNode:
         )
 
 
+# `class ast.NodeVisitor` is a node visitor base class that walks the abstract 
+# syntax tree and calls a visitor function for every node found. This function 
+# may return a value which is forwarded by the `visit()` method. This class is 
+# meant to be subclassed, with the subclass adding visitor methods such as ex-
+# tracting variable names, functions, and calls.. Per default the visitor func-
+# tions for the nodes are ``'visit_'`` + class name of the node. 
+# So a `TryFinally` node visit function would be `visit_TryFinally`. This beha-
+# vior can be changed by overriding the `visit` method. If no visitor function 
+# exists for a node (return value `None`) the `generic_visit` visitor is used
+# instead. Don't use the `NodeVisitor` if you want to apply changes to nodes 
+# during traversing. For this a special visitor exists (`NodeTransformer`) that
+# allows modifications.
 class UseDefChain(ast.NodeVisitor):
     def __init__(self, global_vars, instantiate):
         self.buffers = {}
@@ -64,6 +76,11 @@ class UseDefChain(ast.NodeVisitor):
         return self.path + ":" + name
 
     def dump_graph(self, top_func_name):
+        DEBUG = 0
+        if DEBUG:
+            print("type of self.buffers: ", type(self.buffers))
+            for item,key in self.buffers.items():
+                print(f"  {item:>20} = {key}")
         print("digraph G {")
         for var in self.buffers.values():
             var_path = var.path
@@ -137,9 +154,34 @@ class UseDefChain(ast.NodeVisitor):
         return set(cond).union(set(if_branch)).union(set(else_branch))
 
     def visit_For(self, node):
+        # Here, node is a `<ast.For object>`.
+        # `<ast.For object>.orelse` means the Python grammer like:
+        #     for x in iterable:
+        #         # Loop body
+        #         ...
+        #     else:
+        #         # Else block
+        #         ...
+        # The `for` loop iterates over an iterable (which can be a list, tuple, 
+        # dictionary, set, string, etc.). In each iteration, the current element 
+        # is assigned to `x`. If the `for` loop completes normally (i.e., it does 
+        # not encounter a `break` statement), the code in the `else` block is exe-
+        # cuted. If the `for` loop is terminated prematurely using `break`, the 
+        # `else` block will not be executed.
         if node.orelse:
+            # If the `orelse` attribute exists, a runtime error is thrown, and it 
+            # is prompted that the `else` grammer are not supported in Allo.
             raise RuntimeError("'else' clause for 'for' not supported in Allo kernels")
+        
+        # print(f"isinstance(node.iter, ast.Call): {isinstance(node.iter, ast.Call)}")
+
+        # Check whether the `node.iter` (iterative object) of the `for` loop is a 
+        # function call. `ast.Call` means that this is a function call node. The 
+        # form of the `for` loop that meets this condition includes: using `range`, 
+        # or other functions that generate iterative objects.
         if isinstance(node.iter, ast.Call):
+            # `ASTResolver.resolve` resolves a given AST node to a Python object.
+            # Here, it transforms a <ast.Name object> to a Python object like None.
             obj = ASTResolver.resolve(node.iter.func, self.global_vars)
             if (
                 obj is None
@@ -153,9 +195,18 @@ class UseDefChain(ast.NodeVisitor):
         raise RuntimeError("Unsupported for loop")
 
     def visit_Call(self, node):
+        print(f"node: {node}")
+        print(f" self.func_id: {self.func_id}")
+        print(f" node.func.id: {node.func.id}")
+        print(f" node.func: {node.func}")
+        # Here, node is a `<ast.Call object>`.
         original_func_id = self.func_id
         if isinstance(node.func, ast.Name):
+            # `ASTResolver.resolve` resolves a given AST node to a Python object. 
+            # Here, it transforms a <ast.Name object> to a Python <function ...>
+            # object.
             obj = ASTResolver.resolve(node.func, self.global_vars)
+            # `node.func.id` returns the name of function that is called.
             obj_name = node.func.id
         elif isinstance(node.func, ast.Attribute):
             obj = ASTResolver.resolve(node.func, self.global_vars)
