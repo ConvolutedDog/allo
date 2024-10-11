@@ -337,6 +337,7 @@ class UseDefChain(ast.NodeVisitor):
         return res
 
     def visit_FunctionDef(self, node):
+        # Here, node is ...
         original_path = self.path
         if self.func_id is None:
             self.path = node.name
