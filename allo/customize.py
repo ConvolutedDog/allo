@@ -690,9 +690,39 @@ def customize(
     if isinstance(fn, str):
         src = fn
     else:
+        # fn is a function object. inspect.getsourcelines(fn) will return a list containing
+        # each line of source code, and the starting line number of fn. For example, code:
+        # ```tmp.py
+        #    L1  import inspect
+        #    L2  def a():
+        #    L3      return 0
+        #    L4  print(inspect.getsourcelines(a))
+        # ```
+        # will output `(['def a():\n', '    return 0\n'], 2)`.
         src, _ = getsourcelines(fn)
+        # textwrap.fill formats a line of text into multiple lines of text with a width not
+        # exceeding `width`, replaces tabs with a specified number of spaces, and remove '\n'.
+        # For example, code:
+        # ```tmp.py
+        #    L1  import inspect
+        #    L2  def a():
+        #    L3      return 0
+        #    L4  src, _ = inspect.getsourcelines(a)
+        #    L5  import textwrap
+        #    L6  src = [textwrap.fill(line, tabsize=4, width=9999) for line in src]
+        #    L7  print(src)
+        # ```
+        # will output `['def a():', '    return 0']`.
         src = [textwrap.fill(line, tabsize=4, width=9999) for line in src]
+        # ("\n".join(src)) joins all the lines in the src list into a single string, using
+        # newline characters as line separators. The textwrap.dedent() removes common leading
+        # spaces (i.e. common indentation) from each line in a string. If each line has the
+        # same number of leading spaces, those spaces are removed.
         src = textwrap.dedent("\n".join(src))
+    # Use `ast module to parse the source code and return Abstract Syntax Trees. The ast 
+    # module helps Python applications to process trees of the Python abstract syntax grammar. 
+    # The abstract syntax itself might change with each Python release; this module helps to 
+    # find out programmatically what the current grammar looks like.
     tree = parse_ast(src, verbose)
     if instantiate is None:
         instantiate = []
