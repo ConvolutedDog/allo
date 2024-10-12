@@ -337,9 +337,10 @@ class UseDefChain(ast.NodeVisitor):
         return res
 
     def visit_FunctionDef(self, node):
-        # Here, node is ...
+        # Here, node is a `<ast.FunctionDef object>`.
         original_path = self.path
         if self.func_id is None:
+            # `node.name` is the function name defined by users.
             self.path = node.name
         else:
             self.path = node.name + "_" + str(self.func_id)
