@@ -129,7 +129,21 @@ def get_func_id_from_param_types(param_types):
 
 
 def resolve_generic_types(global_vars, type_var, call_val):
+    # Here, `type_var` is a `<ast.TypeVar object>`, and `call_val` is the value
+    # of the `type_var.name`.
     name = type_var.name
+    # `.bound` is used to define an upper bound (i.e., the upper limit of the 
+    # type) for a type variable. When we set the bound attribute for a TypeVar 
+    # object, it indicates that any concrete type used to replace the type var-
+    # iable must be a subtype of the upper bound. For example:
+    #     from typing import TypeVar, Any
+    #     # Define a type variable `T` whose upper bound is a subclass of `Any`.
+    #     T = TypeVar('T', bound=Any)
+    #     def process_element(element: T) -> T:
+    #         return element
+    #     # When used, `T` can be an instance of `Any` and its subclasses.
+    #     result = process_element(10)      # `int` is a subclass of `Any`
+    #     result = process_element("Hello") # `str` is a subclass of `Any`
     if type_var.bound is None:
         return name, call_val
     constrained_types = ASTResolver.resolve_param_types(type_var.bound, global_vars)
