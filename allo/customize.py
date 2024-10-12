@@ -919,7 +919,7 @@ def customize(
         # will output `['def a():', '    return 0']`.
         src = [textwrap.fill(line, tabsize=4, width=9999) for line in src]
         # ("\n".join(src)) joins all the lines in the src list into a single string, using
-        # newline characters as line separators. The textwrap.dedent() removes common leading
+        # newline characters as line separators. `textwrap.dedent()` removes common leading
         # spaces (i.e. common indentation) from each line in a string. If each line has the
         # same number of leading spaces, those spaces are removed.
         src = textwrap.dedent("\n".join(src))
