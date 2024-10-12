@@ -195,10 +195,12 @@ class UseDefChain(ast.NodeVisitor):
         raise RuntimeError("Unsupported for loop")
 
     def visit_Call(self, node):
-        print(f"node: {node}")
-        print(f" self.func_id: {self.func_id}")
-        print(f" node.func.id: {node.func.id}")
-        print(f" node.func: {node.func}")
+        DEBUG = 0
+        if DEBUG:
+            print(f"node: {node}")
+            print(f" self.func_id: {self.func_id}")
+            print(f" node.func.id: {node.func.id}")
+            print(f" node.func: {node.func}")
         # Here, node is a `<ast.Call object>`.
         original_func_id = self.func_id
         if isinstance(node.func, ast.Name):
