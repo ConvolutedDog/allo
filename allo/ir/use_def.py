@@ -12,11 +12,18 @@ from .utils import get_func_id_from_param_types, resolve_generic_types
 
 class VarNode:
     def __init__(self, path, name, idx=None):
+        # In general, it can be simply understood as the name of the function
+        # where the `VarNode` is located.
         self.path = path
+        # The name of the `self` `VarNode`.
         self.name = name
+        # `VarNode.users` is a set of `VarNode` objects that `use` the `self`
+        # `VarNode` object (this set can include `self` itself) in the current
+        # `VarNode.path`.
         self.users = set()
         # Used for identifying the location of function arguments
         # if self.idx is None, this variable is not a function argument
+        # Because `self.idx` is only assigned in `visit_FunctionDef`.
         self.idx = idx
 
     def add_user(self, node):
@@ -49,6 +56,9 @@ class VarNode:
 # allows modifications.
 class UseDefChain(ast.NodeVisitor):
     def __init__(self, global_vars, instantiate):
+        # `UseDefChain.buffers` is a dictionary that stores all `VarNode` obje-
+        # cts (including `def` and `use`) in `UseDefChain.path`, with a key of
+        # f"{VarNode.path}:{VarNode.name}" and a value of `VarNode`.
         self.buffers = {}
         self.path = ""
         self.global_vars = global_vars
@@ -82,6 +92,7 @@ class UseDefChain(ast.NodeVisitor):
             for item,key in self.buffers.items():
                 print(f"  {item:>20} = {key}")
         print("digraph G {")
+        print("  // Def -> Use")
         for var in self.buffers.values():
             var_path = var.path
             if var.path == top_func_name:
@@ -213,6 +224,11 @@ class UseDefChain(ast.NodeVisitor):
         elif isinstance(node.func, ast.Attribute):
             obj = ASTResolver.resolve(node.func, self.global_vars)
             obj_name = node.func.attr
+        # In Python's AST, in addition to list slicing, other indexing operations
+        # such as lists, tuples, and dictionaries are also parsed into `ast.Subscript`.
+        # These include, but are not limited to, list element access (e.g., a[0]),
+        # dictionary key access (e.g., d['key']), and element access to multidimen-
+        # sional arrays (e.g., matrix[i][j]).
         elif isinstance(node.func, ast.Subscript):
             obj = ASTResolver.resolve(node.func.value, self.global_vars)
             assert obj is not None, "Unsupported function call"
@@ -350,13 +366,61 @@ class UseDefChain(ast.NodeVisitor):
         # Generic function
         if (
             len(self.inst) > 0
+            # In newer versions of Python (from Python 3.9 and later), Python has
+            # begun to support more powerful tools for Type Hinting, which may
+            # have led to the addition of some new functionality to support native
+            # type parameter expressions.
             and hasattr(node, "type_params")
             and len(node.type_params) > 0
         ):
             assert len(self.inst) == len(
                 node.type_params
             ), f"Type parameters mismatch, got {self.inst} and {node.type_params}"
+            # For the function:
+            # ```python
+            #     def stageS[
+            #         T: (float32, int32), M: int32, N: int32
+            #     ](A: "T[N, M]", r: "T[N]", s: "T[M]"):
+            #         for i0 in range(N):  # pipeline
+            #             r: T = r[i0]
+            #             for j0 in range(M):  # unroll
+            #                 s[j0] += r * A[i0, j0]
+            # ```
+            # the AST of this function will have the `type_params` attribute like:
+            # ```python
+            #     type_params=[
+            #       TypeVar(
+            #         name='T',
+            #         bound=Tuple(
+            #           elts=[
+            #             Name(id='float32', ctx=Load()),
+            #             Name(id='int32', ctx=Load()),
+            #           ],
+            #           ctx=Load(),
+            #         ),
+            #       ),
+            #       TypeVar(
+            #         name='M',
+            #         bound=Name(id='int32', ctx=Load()),
+            #       ),
+            #       TypeVar(
+            #         name='N',
+            #         bound=Name(id='int32', ctx=Load()),
+            #       ),
+            #     ],
+            # ```
+            # If users call the `allo.customize` func like:
+            #     `customize(stageS, instantiate=[i32, 4, 8], verbose=False)`
+            # the below `zip` (type_var, call_val) will contain:
+            #     TypeVar(name='T', bound=Tuple(
+            #                         elts=[Name(id='float32', ctx=Load()), 
+            #                               Name(id='int32', ctx=Load())], 
+            #                         ctx=Load())
+            #            ), i32
+            #     TypeVar(name='M', bound=Name(id='int32', ctx=Load())), 4
+            #     TypeVar(name='N', bound=Name(id='int32', ctx=Load())), 8
             for type_var, call_val in zip(node.type_params, self.inst):
+                # print(ast.dump(type_var), call_val)
                 name, call_val = resolve_generic_types(
                     self.global_vars, type_var, call_val
                 )
@@ -365,6 +429,7 @@ class UseDefChain(ast.NodeVisitor):
         if original_path == "":  # top-level function
             # create initial variables
             for i, arg in enumerate(node.args.args):
+                # print(i, ast.dump(arg))
                 if self.get_name(arg.arg) not in self.buffers:
                     self.buffers[self.get_name(arg.arg)] = VarNode(
                         node.name, arg.arg, i

@@ -933,6 +933,8 @@ def customize(
     if global_vars is None:
         global_vars = get_global_vars(fn)
     # Use-def chain analysis
+    # import astpretty
+    # astpretty.pprint(tree, indent=2, show_offsets=False)
     use_def_chain = UseDefChain(global_vars.copy(), instantiate)
     use_def_chain.visit(tree)
     # Type construction
