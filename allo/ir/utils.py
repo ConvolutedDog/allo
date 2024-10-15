@@ -162,6 +162,10 @@ class MockOp:
         pass
 
 
+# This is a mock class that is used to store the function arguments, which are
+# `BlockArgument`s in MLIR. It is different from other operations that inheren-
+# tly have a result attribute. Therefore, we mock the `BlockArgument` to make
+# it consistent with other operations by providing a result property method.
 class MockArg(MockOp):
     def __init__(self, val, is_affine=True, idx=None):
         self.val = val

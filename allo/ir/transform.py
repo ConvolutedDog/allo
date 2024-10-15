@@ -332,6 +332,7 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
         IntegerType.get_unsigned(32), 1
     )
     for_loops[-1].attributes["rewind"] = UnitAttr.get()
+    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
     induction_vars = [for_loop.induction_variable for for_loop in for_loops]
     with InsertionPoint(for_loops[-1].body.operations[0]):
         if not flatten:
@@ -344,12 +345,14 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
             load = affine_d.AffineLoadOp(
                 MemRefType(tensor.type).element_type,
                 tensor,
+                # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                 induction_vars,
                 affine_attr,
             )
             affine_d.AffineStoreOp(
                 load.result,
                 alloc_op.result,
+                # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                 induction_vars,
                 affine_attr,
             )
@@ -374,6 +377,7 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
                 load = affine_d.AffineLoadOp(
                     MemRefType(tensor.type).element_type,
                     tensor,
+                    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                     induction_vars,
                     affine_attr,
                 )
@@ -387,6 +391,7 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
                 affine_d.AffineStoreOp(
                     load.result,
                     alloc_op.result,
+                    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                     induction_vars,
                     affine_attr,
                 )
@@ -402,6 +407,7 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
                 load = affine_d.AffineLoadOp(
                     MemRefType(tensor.type).element_type,
                     tensor,
+                    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                     induction_vars,
                     affine_attr,
                 )
@@ -413,6 +419,7 @@ def create_buffer(tensor, name, ip, alloc_ip=None, flatten=False, mapping=None):
                 affine_d.AffineStoreOp(
                     load.result,
                     alloc_op.result,
+                    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
                     induction_vars,
                     affine_attr,
                 )
@@ -427,12 +434,14 @@ def store_tensor(tensor, target, name, ip, flatten=True):
         IntegerType.get_unsigned(32), 1
     )
     for_loops[-1].attributes["rewind"] = UnitAttr.get()
+    # `induction_vars`: The list of loop iterators, e.g., i, j, k.
     induction_vars = [for_loop.induction_variable for for_loop in for_loops]
     with InsertionPoint(for_loops[-1].body.operations[0]):
         in_str = ", ".join([f"d{i}" for i in range(len(loop_bounds))])
         load_str = in_str
         affine_attr = AffineMapAttr.parse(f"affine_map<({in_str})->({load_str})>")
         load = affine_d.AffineLoadOp(
+            # `induction_vars`: The list of loop iterators, e.g., i, j, k.
             MemRefType(tensor.type).element_type, tensor, induction_vars, affine_attr
         )
         if not flatten:
@@ -452,6 +461,7 @@ def store_tensor(tensor, target, name, ip, flatten=True):
         affine_d.AffineStoreOp(
             load.result,
             target,
+            # `induction_vars`: The list of loop iterators, e.g., i, j, k.
             induction_vars,
             affine_attr,
         )
